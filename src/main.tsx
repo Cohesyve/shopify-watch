@@ -7,7 +7,7 @@ import ReactDOM from 'react-dom';
 
 createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <BrowserRouter basename="/shopify-watch">
+      <BrowserRouter basename="/shopify-watch/">
         <App />
       </BrowserRouter>
     </React.StrictMode>,
