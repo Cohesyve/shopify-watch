@@ -1,9 +1,9 @@
-
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ProductCard from "./ProductCard";
+import { formatCurrency } from "@/lib/utils";
 
 interface StoreDataDisplayProps {
   stores: Array<{
@@ -14,6 +14,24 @@ interface StoreDataDisplayProps {
     data: any | null;
     error: string | null;
   }>;
+}
+
+interface Product {
+  id: string; // Changed from string | number to string
+  title: string;
+  handle: string; // Added
+  body_html?: string;
+  published_at: string; // Added
+  created_at: string; // Added
+  updated_at: string; // Added
+  vendor: string; // Added
+  product_type: string; // Added
+  tags: string[]; // Added
+  variants: { price: string; compare_at_price?: string | null; [key: string]: any }[]; // Modified
+  images?: { src: string; id?: string; position?: number; [key: string]: any }[]; // Modified
+  storeId: string;
+  storeUrl: string;
+  currency_code?: string;
 }
 
 const StoreDataDisplay = ({ stores }: StoreDataDisplayProps) => {
@@ -34,20 +52,43 @@ const StoreDataDisplay = ({ stores }: StoreDataDisplayProps) => {
   ];
 
   // Get all products from all stores
-  const allProducts = storesWithData.flatMap(store => 
-    (store.data?.products || []).map((product: any) => ({
-      ...product,
+  const allProducts: Product[] = storesWithData.flatMap(store =>
+    (store.data?.products || []).map((product: any): Product => ({
+      ...product, // Spread all properties from the source product
+      id: String(product.id), // Ensure id is a string
+      title: product.title,
+      handle: product.handle, // Added
+      body_html: product.body_html,
+      published_at: product.published_at, // Added
+      created_at: product.created_at, // Added
+      updated_at: product.updated_at, // Added
+      vendor: product.vendor, // Added
+      product_type: product.product_type, // Added
+      tags: product.tags, // Added
+      variants: product.variants,
+      images: product.images,
       storeId: store.id,
-      storeUrl: store.url
+      storeUrl: store.url,
+      currency_code: store.data?.currency_code,
     }))
   );
 
   // Sort products by price for comparison
-  const sortedProducts = [...allProducts].sort((a, b) => {
+  const sortedProducts: Product[] = [...allProducts].sort((a, b) => {
     const priceA = parseFloat(a.variants[0]?.price || "0");
     const priceB = parseFloat(b.variants[0]?.price || "0");
     return priceA - priceB;
   });
+
+  // Group products by store for the overview section
+  const productsByStore: Record<string, Product[]> = sortedProducts.reduce((acc, product) => {
+    const storeHostname = new URL(product.storeUrl.startsWith("http") ? product.storeUrl : `https://${product.storeUrl}`).hostname;
+    if (!acc[storeHostname]) {
+      acc[storeHostname] = [];
+    }
+    acc[storeHostname].push(product);
+    return acc;
+  }, {} as Record<string, Product[]>);
 
   return (
     <div className="bg-white shadow rounded-lg p-6">
@@ -76,17 +117,30 @@ const StoreDataDisplay = ({ stores }: StoreDataDisplayProps) => {
                     <h3 className="font-medium text-sm mb-3">Products by Price (Lowest to Highest)</h3>
                     <ScrollArea className="h-[400px] rounded-md border">
                       <div className="p-4">
-                        {sortedProducts.map((product, idx) => (
-                          <div key={`${product.storeId}-${product.id}`} className="py-2 border-b last:border-0">
-                            <p className="font-medium">{product.title}</p>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-500">
-                                {new URL(product.storeUrl.startsWith("http") ? product.storeUrl : `https://${product.storeUrl}`).hostname}
-                              </span>
-                              <span className="font-medium">
-                                ${parseFloat(product.variants[0]?.price || "0").toFixed(2)}
-                              </span>
-                            </div>
+                        {Object.entries(productsByStore).map(([storeName, products]: [string, Product[]]) => ( // Explicitly type products here
+                          <div key={storeName} className="mb-4">
+                            <h4 className="text-sm font-semibold mb-2 sticky top-0 bg-white z-10 py-1">{storeName}</h4>
+                            {products.map((product: Product) => ( // Explicitly type product here
+                              <div key={`${product.storeId}-${product.id}`} className="py-2 border-b last:border-0 flex items-center justify-between">
+                                <div className="flex items-center space-x-3 w-[85%]">
+                                  {product.images && product.images.length > 0 && (
+                                    <img
+                                      src={product.images[0].src}
+                                      alt={product.title}
+                                      className="w-10 h-10 object-cover rounded-md"
+                                    />
+                                  )}
+                                  <div className="flex flex-col items-start">
+                                    <p className="text-sm font-medium flex-1">{product.title}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-end text-sm w-[15%]">
+                                  <span className="font-medium">
+                                    {formatCurrency(product.variants[0]?.price || "0", product.currency_code || "USD")}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         ))}
                       </div>
@@ -109,7 +163,7 @@ const StoreDataDisplay = ({ stores }: StoreDataDisplayProps) => {
                             <div>
                               <p className="text-gray-500">Avg. Price</p>
                               <p className="font-medium">
-                                ${calculateAveragePrice(store.data?.products || [])}
+                                {formatCurrency(calculateAveragePrice(store.data?.products || []), store.data?.currency_code || "USD")}
                               </p>
                             </div>
                           </div>
@@ -134,7 +188,7 @@ const StoreDataDisplay = ({ stores }: StoreDataDisplayProps) => {
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {(store.data?.products || []).map((product: any) => (
-                    <ProductCard key={product.id} product={product} />
+                    <ProductCard key={product.id} product={{...product, id: String(product.id), currency_code: store.data?.currency_code || "USD"} as Product} /> // Ensure id is string
                   ))}
                 </div>
                 
@@ -151,11 +205,11 @@ const StoreDataDisplay = ({ stores }: StoreDataDisplayProps) => {
 };
 
 // Helper function to calculate average price of products
-function calculateAveragePrice(products: any[]): string {
+function calculateAveragePrice(products: Product[]): string { // Use Product type here
   if (!products || products.length === 0) return "0.00";
   
   const total = products.reduce((sum, product) => {
-    const price = parseFloat(product.variants[0]?.price || "0");
+    const price = parseFloat(product.variants[0]?.price || "0"); // Ensure price is treated as string for parseFloat
     return sum + price;
   }, 0);
   

@@ -4,51 +4,45 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 210 60% 98%; /* cohesyve $background #F8FAFC */
+    --foreground: 230 41.4% 30.8%; /* cohesyve $darkBlue #2C3771 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%; /* cohesyve $primary white */
+    --card-foreground: 230 41.4% 30.8%; /* cohesyve $darkBlue #2C3771 */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%; /* cohesyve $primary white */
+    --popover-foreground: 230 41.4% 30.8%; /* cohesyve $darkBlue #2C3771 */
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 229 58.8% 56.7%; /* cohesyve $lightBlue #5266CF */
+    --primary-foreground: 0 0% 100%; /* cohesyve $primary white */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 230 41.4% 30.8%; /* cohesyve $darkBlue #2C3771 */
+    --secondary-foreground: 0 0% 100%; /* cohesyve $primary white */
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 0 0% 97.3%; /* cohesyve $lightGray #F8F8F8 */
+    --muted-foreground: 230 25% 55%; /* Lighter, less saturated version of $darkBlue */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 229 58.8% 56.7%; /* cohesyve $lightBlue #5266CF */
+    --accent-foreground: 0 0% 100%; /* cohesyve $primary white */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%; /* Kept existing */
+    --destructive-foreground: 0 0% 100%; /* Changed for better contrast */
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 230 9.5% 89.2%; /* cohesyve $darkGray #e0e1e5 */
+    --input: 0 0% 100%; /* cohesyve $primary white (for input background) */
+    --ring: 229 58.8% 56.7%; /* cohesyve $lightBlue #5266CF */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar variables aligned with Cohesyve theme */
+    --sidebar-background: 0 0% 97.3%; /* cohesyve $lightGray */
+    --sidebar-foreground: 230 41.4% 30.8%; /* cohesyve $darkBlue */
+    --sidebar-primary: 229 58.8% 56.7%; /* cohesyve $lightBlue (active item background) */
+    --sidebar-primary-foreground: 0 0% 100%; /* cohesyve white (active item text) */
+    --sidebar-accent: 230 10% 92%; /* Slightly darker gray than sidebar-background (hover background) */
+    --sidebar-accent-foreground: 230 41.4% 30.8%; /* cohesyve $darkBlue (hover text) */
+    --sidebar-border: 230 9.5% 89.2%; /* cohesyve $darkGray */
+    --sidebar-ring: 229 58.8% 56.7%; /* cohesyve $lightBlue */
   }
 
   .dark {
