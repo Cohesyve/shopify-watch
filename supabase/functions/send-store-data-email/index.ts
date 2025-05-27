@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts"; // Using a slightly more recent std version
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 
 interface StoreInfo {
   id: string;
@@ -9,6 +9,11 @@ interface StoreInfo {
 interface RequestPayload {
   email: string;
   storesData: StoreInfo[];
+}
+
+interface Product {
+  title: string;
+  variants?: { price?: string }[];
 }
 
 console.log("send-store-data-email function initializing.");
@@ -56,47 +61,64 @@ serve(async (req: Request) => {
     }
 
     console.log(`Simulating email dispatch to: ${email}`);
-    // console.log("Stores data received for email:", JSON.stringify(storesData, null, 2));
 
-    // ---- Email Content Simulation ----
     const emailSubject = "Your Monitored Store Data - Initial Update";
-    let emailBody = `Hello,\\\\n\\\\nThank you for subscribing! Here is the initial data for your monitored Shopify stores:\\\\n\\\\n`;
+    let emailHtmlBody = `
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; color: #333;">
+  <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <h1 style="color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px;">Competitor Watchdog Alert</h1>
+    <p>Hello,</p>
+    <p>Thank you for subscribing! Here is the initial data for your monitored Shopify stores:</p>
+`;
 
     if (storesData.length === 0) {
-      emailBody += "No data was available for the stores at this moment.\\\\n";
+      emailHtmlBody += "<p>No data was available for the stores at this moment.</p>";
     } else {
       storesData.forEach(store => {
-        emailBody += `Store URL: ${store.url}\\\\n`;
+        emailHtmlBody += `
+        <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+          <h2 style="color: #555; margin-top: 0;">Store URL: <a href="${store.url}" style="color: #007bff; text-decoration: none;">${store.url}</a></h2>
+        `;
         if (store.data && store.data.products && store.data.products.length > 0) {
-          emailBody += `  Products (${store.data.products.length} found):\\\\n`;
-          store.data.products.slice(0, 5).forEach((product: any) => { // Show first 5 products
-            emailBody += `    - ${product.title} (Price: ${product.variants?.[0]?.price || 'N/A'})\\\\n`;
+          emailHtmlBody += `<p><strong>Products (${store.data.products.length} found):</strong></p><ul style="list-style-type: none; padding-left: 0;">`;
+          store.data.products.slice(0, 5).forEach((product: Product) => {
+            emailHtmlBody += `
+            <li style="margin-bottom: 10px; padding: 10px; background-color: #f9f9f9; border-radius: 4px;">
+              <strong>${product.title}</strong><br>
+              Price: ${product.variants?.[0]?.price || 'N/A'}
+            </li>`;
           });
           if (store.data.products.length > 5) {
-            emailBody += `    ...and ${store.data.products.length - 5} more products.\\\\n`;
+            emailHtmlBody += `<li style="margin-top: 10px;"><em>...and ${store.data.products.length - 5} more products.</em></li>`;
           }
+          emailHtmlBody += "</ul>";
         } else if (store.data && store.data.error) {
-          emailBody += `  Could not fetch data: ${store.data.error}\\\\n`;
+          emailHtmlBody += `<p style="color: red;">Could not fetch data: ${store.data.error}</p>`;
+        } else {
+          emailHtmlBody += "<p>No product data found, or the store might be empty.</p>";
         }
-         else {
-          emailBody += "  No product data found, or the store might be empty.\\\\n";
-        }
-        emailBody += "\\\\n";
+        emailHtmlBody += "</div>";
       });
     }
-    emailBody += "You will receive periodic updates for these stores.\\\\n\\\\nThank you for using Competitor Watchdog!\\\\n";
+    emailHtmlBody += `
+    <p>You will receive periodic updates for these stores.</p>
+    <p>Thank you for using Competitor Watchdog!</p>
+    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+    <p style="font-size: 0.9em; color: #777;">If you did not request this, please ignore this email.</p>
+  </div>
+</body>
+    `;
 
-    console.log("--- Simulated Email Content ---");
+    console.log("--- Simulated HTML Email Content ---");
     console.log("To:", email);
     console.log("Subject:", emailSubject);
-    // console.log("Body:\\\\n", emailBody); // Full body can be very long
-    console.log(`Body Preview (first 500 chars):\\\\n${emailBody.substring(0,500).replace(/\\\\n/g, '\\\\n')}`);
-    console.log("--- End Simulated Email Content ---");
-    // In a real scenario, you would use an email sending service here.
-    // Example: await sendEmailWithResend(email, emailSubject, emailBody);
-    await sendEmailWithResend(email, emailSubject, emailBody);
+    console.log(`Body Preview (first 500 chars):\n${emailHtmlBody.substring(0,500).replace(/\n/g, '\\n')}`);
+    console.log("--- End Simulated HTML Email Content ---\\n");
 
-    return new Response(JSON.stringify({ message: "Email dispatch process simulated successfully." }), {
+    // await sendEmailWithResend(email, emailSubject, emailHtmlBody);
+    console.log("Email sending is disabled."); // Added log
+
+    return new Response(JSON.stringify({ message: "Email dispatch process simulated successfully. Email sending is disabled." }), {
       status: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
     });
@@ -115,8 +137,6 @@ async function sendEmailWithResend(to: string, subject: string, htmlBody: string
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
   if (!RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set. Skipping actual email dispatch.");
-    // Return a response indicating the API key is missing, or handle as an error
-    // For now, let's throw an error to make it clear in the logs if the key is missing.
     throw new Error("RESEND_API_KEY is not set. Cannot send email.");
   }
   const res = await fetch("https://api.resend.com/emails", {
@@ -126,10 +146,10 @@ async function sendEmailWithResend(to: string, subject: string, htmlBody: string
       "Authorization": `Bearer ${RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: "Competitor Watchdog <noreply@cohesyve.com>", // Replace with your verified Resend domain
+      from: "Competitor Watchdog <noreply@cohesyve.com>",
       to: [to],
       subject: subject,
-      html: htmlBody.replace(/\\\\n/g, "<br>"), // Convert newlines to <br> for HTML email
+      html: htmlBody,
     }),
   });
   if (!res.ok) {

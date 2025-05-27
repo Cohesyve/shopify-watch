@@ -175,12 +175,13 @@ serve(async (req: Request) => {
         emailBody += "You are receiving this as part of your Competitor Watchdog subscription.\\\\n";
         
         // console.log("Full Email Body for ${email}:\\\\n", emailBody); // Can be very verbose
-        // console.log(`Preview of email body for ${email} (first 500 chars):\\\\n ${emailBody.substring(0,500).replace(/\\\\n/g, '\\\\n')}`);
+        // console.log(`Preview of email body for ${email} (first 500 chars):\\\\\\\\n ${emailBody.substring(0,500).replace(/\\\\\\\\n/g, '\\\\\\\\n')}`);
         // console.log(`--- End Email Simulation for ${email} ---`);
         // TODO: Implement actual email sending logic here (e.g., using Resend, SendGrid, etc.)
         try {
-          await sendEmailWithResend(email, emailSubject, emailBody);
-          console.log(`Successfully dispatched periodic update email to ${email}.`);
+          // await sendEmailWithResend(email, emailSubject, emailBody);
+          console.log(`Email sending is disabled. Would have sent periodic update to ${email}.`); // Added log
+          // console.log(`Successfully dispatched periodic update email to ${email}.`);
         } catch (emailError: any) {
           console.error(`Failed to send periodic update email to ${email}: ${emailError.message}`);
           // Decide if you want to continue processing other subscriptions or halt.
