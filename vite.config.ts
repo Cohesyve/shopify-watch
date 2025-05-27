@@ -20,4 +20,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   base: '/shopify-watch',
+  build: { // Add this build configuration
+    sourcemap: true,
+  }
 }));
