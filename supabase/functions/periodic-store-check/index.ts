@@ -17,7 +17,7 @@ async function fetchShopifyStoreData(storeUrl: string): Promise<StoreFetchResult
   if (fullUrl.endsWith('/')) {
     fullUrl = fullUrl.slice(0, -1);
   }
-  const productsUrl = `${fullUrl}/products.json?limit=10&published_status=published`; // Fetch first 10 published products
+  const productsUrl = `${fullUrl}/products.json?limit=250&published_status=published`; // Fetch first 10 published products
 
   try {
     // console.log(`Periodic check: Fetching data for: ${productsUrl}`);
@@ -28,7 +28,7 @@ async function fetchShopifyStoreData(storeUrl: string): Promise<StoreFetchResult
       const urlObj = new URL(fullUrl);
       if (!urlObj.hostname.startsWith('www.') && urlObj.hostname.split('.').length === 2) {
         const wwwHostname = `www.${urlObj.hostname}`;
-        const wwwProductsUrl = `https://${wwwHostname}${urlObj.pathname === '/' ? '' : urlObj.pathname}/products.json?limit=10&published_status=published`;
+        const wwwProductsUrl = `https://${wwwHostname}${urlObj.pathname === '/' ? '' : urlObj.pathname}/products.json?limit=250&published_status=published`;
         // console.log(`Periodic check: Retrying with www: ${wwwProductsUrl}`);
         const wwwResponse = await fetch(wwwProductsUrl, { headers: { 'User-Agent': 'CompetitorWatchdogCron/1.0' } });
         if (wwwResponse.ok) {

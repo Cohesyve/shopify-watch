@@ -19,7 +19,7 @@ export const validateShopifyUrl = async (url: string): Promise<boolean> => {
       normalizedUrl = normalizedUrl.slice(0, -1);
     }
     
-    const response = await fetch(`${normalizedUrl}/products.json`, {
+    const response = await fetch(`${normalizedUrl}/products.json?limit=250`, {
       method: 'GET',
     });
     
@@ -46,7 +46,7 @@ export const fetchStoreData = async (url: string): Promise<{ products: any[], cu
       normalizedUrl = normalizedUrl.slice(0, -1);
     }
     
-    const productsResponse = await fetch(`${normalizedUrl}/products.json`);
+    const productsResponse = await fetch(`${normalizedUrl}/products.json?limit=250`);
     
     if (!productsResponse.ok) {
       throw new Error(`Failed to fetch products.json: ${productsResponse.status}`);
