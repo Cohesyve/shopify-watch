@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Check, Eye, Save } from "lucide-react";
+import { Plus, Check, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import StoreDataDisplay from "@/components/StoreDataDisplay";
 import { fetchStoreData, validateShopifyUrl } from "@/utils/shopifyUtils";
@@ -74,10 +74,7 @@ const CompetitorTracker = () => {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [email, setEmail] = useState("");
   const [hasSubscribedThisSession, setHasSubscribedThisSession] = useState(false);
-  const [activeTab, setActiveTab] = useState("competitor-data");
-  const [pricingSuggestionsByCompetitor, setPricingSuggestionsByCompetitor] = useState<SuggestionsByCompetitor[]>([]);
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  const [activePricingTab, setActivePricingTab] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<string>("competitor-data"); // Default to competitor-data
   const [showTabs, setShowTabs] = useState(false); // Added state for Tabs visibility
 
   const getCurrencySymbol = (currencyCode?: string | null): string => {
@@ -176,6 +173,8 @@ const CompetitorTracker = () => {
     }
   };
   
+  // Comment out fetchPricingSuggestions function
+  /*
   const fetchPricingSuggestions = async () => {
     if (!ourStore || !ourStore.isValid || !ourStore.data) {
       toast({
@@ -201,88 +200,15 @@ const CompetitorTracker = () => {
 
     setIsLoadingSuggestions(true);
     try {
-      const our_data_products = Array.isArray(ourStore.data.products) ? ourStore.data.products : [];
-      const our_data_payload = { 
-        products: our_data_products, 
-        currency_symbol: getCurrencySymbol(ourStore.data?.currency_code) // MODIFIED: Use getCurrencySymbol
-      };
-      
-      const competitor_stores_data_payload = validCompetitorsWithData.map(store => {
-        let identifier = "unknown-competitor";
-        try {
-          const fullUrl = store.url.startsWith("http://") || store.url.startsWith("https://") ? store.url : `https://${store.url}`;
-          identifier = new URL(fullUrl).hostname;
-        } catch (e) {
-          identifier = store.url; 
-        }
-        const competitor_products = Array.isArray(store.data?.products) ? store.data.products : [];
-        return {
-          store_identifier: identifier,
-          products: competitor_products,
-          currency_symbol: getCurrencySymbol(store.data?.currency_code) // MODIFIED: Use getCurrencySymbol
-        };
-      });
-      
-      const { data: suggestionsFromApi, error } = await supabase.functions.invoke('pricing-suggestions', {
-        body: { our_data: our_data_payload, competitor_stores_data: competitor_stores_data_payload },
-      });
-
-      if (error) throw error;
-
-      if (suggestionsFromApi && Array.isArray(suggestionsFromApi)) {
-        const enrichedSuggestions = suggestionsFromApi.map(compSuggestion => {
-          const ourStoreDisplaySymbol = getCurrencySymbol(ourStore.data?.currency_code); // ADDED: for fallback
-
-          // Find the original competitor store to get its currency code for fallback
-          const competitorStoreBeingProcessed = validCompetitorsWithData.find(s => {
-            let id = "unknown";
-            try {
-              const fullUrl = s.url.startsWith("http://") || s.url.startsWith("https://") ? s.url : `https://${s.url}`;
-              id = new URL(fullUrl).hostname;
-            } catch (e) { id = s.url; }
-            return id === compSuggestion.competitor_store_identifier;
-          });
-          const competitorDisplaySymbol = getCurrencySymbol(competitorStoreBeingProcessed?.data?.currency_code); // ADDED: for fallback
-
-          return {
-            ...compSuggestion,
-            suggestions_for_our_products: compSuggestion.suggestions_for_our_products.map((prodSuggestion: any) => ({
-              ...prodSuggestion,
-              our_currency_symbol: prodSuggestion.our_currency_symbol || ourStoreDisplaySymbol, // MODIFIED: Fallback to ourStoreDisplaySymbol
-              matched_competitor_variants_from_this_competitor: prodSuggestion.matched_competitor_variants_from_this_competitor.map((variantDetail: any) => ({
-                ...variantDetail,
-                competitor_currency_symbol: variantDetail.competitor_currency_symbol || competitorDisplaySymbol, // MODIFIED: Fallback to competitorDisplaySymbol
-              })),
-            })),
-          };
-        });
-
-        setPricingSuggestionsByCompetitor(enrichedSuggestions);
-        if (enrichedSuggestions.length > 0 && enrichedSuggestions[0].competitor_store_identifier) {
-          setActivePricingTab(enrichedSuggestions[0].competitor_store_identifier);
-        }
-        toast({ title: "Pricing Strategies Updated", description: "Suggestions based on current data." });
-      } else {
-        setPricingSuggestionsByCompetitor([]);
-        toast({ title: "No Suggestions", description: "Could not generate pricing suggestions or format is incorrect.", variant: "default" });
-      }
-    } catch (error: any) {
-      console.error("Error fetching pricing suggestions:", error);
-      toast({
-        title: "Error Fetching Suggestions",
-        description: `Failed to communicate with the pricing service: ${error.message}.`,
-        variant: "destructive",
-      });
-      setPricingSuggestionsByCompetitor([]);
-    } finally {
-      setIsLoadingSuggestions(false);
-    }
-  };
+      const ourDataForApi = {\n        products: ourStore.data.products.map(p => ({\n          title: p.title,\n          body_html: p.body_html, // Ensure body_html is included\n          variants: p.variants.map(v => ({ title: v.title, price: v.price }))\n        }))\n      };\n\n      const competitorStoresDataForApi = validCompetitorsWithData.map(store => ({\n        store_identifier: new URL(store.url.startsWith(\"http\") ? store.url : `https://${store.url}`).hostname,\n        products: store.data?.products.map(p => ({\n          title: p.title,\n          body_html: p.body_html, // Ensure body_html is included\n          variants: p.variants.map(v => ({ title: v.title, price: v.price }))\n        })) || []\n      }));\n\n      // console.log(\"Sending to Supabase for pricing:\", JSON.stringify({ our_data: ourDataForApi, competitor_stores_data: competitorStoresDataForApi, product_limit: 15 }, null, 2));\n\n      const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/pricing-suggestions`, {\n        method: \'POST\',\n        headers: {\n          \'Content-Type\': \'application/json\',\n          \'Authorization\': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,\n        },\n        body: JSON.stringify({ \n          our_data: ourDataForApi, \n          competitor_stores_data: competitorStoresDataForApi,\n          product_limit: 15 // Example: limit to 15 products for suggestions\n        }),\n      });\n\n      if (!response.ok) {\n        const errorData = await response.json().catch(() => ({ error: \"Failed to parse error response\" }));\n        console.error(\"Error from pricing suggestions function:\", errorData);\n        throw new Error(`HTTP error ${response.status}: ${errorData.error || response.statusText}`);\n      }\n\n      const suggestions: SuggestionsByCompetitor[] = await response.json();\n      // console.log(\"Raw suggestions from API:\", JSON.stringify(suggestions, null, 2));\n\n      if (suggestions && Array.isArray(suggestions)) {\n        const ourStoreCurrencySymbol = getCurrencySymbol(ourStore.data?.currency_code);\n        const enrichedSuggestions = suggestions.map(compSuggestion => ({\n          ...compSuggestion,\n          suggestions_for_our_products: compSuggestion.suggestions_for_our_products.map(prodSuggestion => ({\n            ...prodSuggestion,\n            our_currency_symbol: ourStoreCurrencySymbol,\n            // Potentially add competitor currency symbol here if available and needed\n          }))\n        }));\n        // console.log(\"Enriched suggestions:\", JSON.stringify(enrichedSuggestions, null, 2));\n        setPricingSuggestionsByCompetitor(enrichedSuggestions);\n        if (enrichedSuggestions.length > 0 && enrichedSuggestions[0].suggestions_for_our_products.length > 0) {\n          setActivePricingTab(enrichedSuggestions[0].competitor_store_identifier);\n        }\n        toast({ title: \"Pricing Strategies Updated\", description: \"Suggestions based on current data.\" });\n      } else {\n        setPricingSuggestionsByCompetitor([]);\n        toast({ title: \"No Suggestions\", description: \"Could not generate pricing suggestions or format is incorrect.\", variant: \"default\" });\n      }\n    } catch (error: any) {\n      console.error(\"Error fetching pricing suggestions:\", error);\n      toast({\n        title: \"Error Fetching Suggestions\",\n        description: `Failed to communicate with the pricing service: ${error.message}.`,\n        variant: \"destructive\",\n      });\n      setPricingSuggestionsByCompetitor([]);\n    } finally {\n      setIsLoadingSuggestions(false);\n    }\n  };\n  */
 
   useEffect(() => {
     const hasAnyData = (ourStore.isValid && ourStore.data) || competitorStores.some(s => s.isValid && s.data);
-    if (activeTab === "pricing-strategies" && hasAnyData) {
-      fetchPricingSuggestions();
+    // if (activeTab === "pricing-strategies" && hasAnyData) {
+    //   fetchPricingSuggestions();
+    // }
+    if (hasAnyData) {
+      setShowTabs(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, ourStore.data, JSON.stringify(competitorStores.map(s => s.data))]);
@@ -327,9 +253,9 @@ const CompetitorTracker = () => {
     }
     
     setIsFetchingAll(false);
-    if (activeTab === "pricing-strategies" && results.some(r => r.data)) {
-       fetchPricingSuggestions();
-    }
+    // if (activeTab === "pricing-strategies" && results.some(r => r.data)) {
+    //    fetchPricingSuggestions();
+    // }
     return results;
   };
 
@@ -680,16 +606,18 @@ const CompetitorTracker = () => {
       
       {showTabs && (
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-white">
-          <TabsTrigger value="competitor-data" data-state={activeTab === "competitor-data" ? "active" : "inactive"} className="data-[state=active]:bg-[hsl(229,58.8%,56.7%)] data-[state=active]:text-white">Competitor Data</TabsTrigger>
-          <TabsTrigger value="pricing-strategies" data-state={activeTab === "pricing-strategies" ? "active" : "inactive"} className="data-[state=active]:bg-[hsl(229,58.8%,56.7%)] data-[state=active]:text-white">
-          Pricing Strategies ✨
+        <TabsList className="grid w-full grid-cols-1">
+          <TabsTrigger value="competitor-data" data-state={activeTab === "competitor-data" ? "active" : "inactive"} className="data-[state=active]:bg-[hsl(229,58.8%,56.7%)] data-[state=active]:text-white">
+            Competitor Product Data
           </TabsTrigger>
+          {/* <TabsTrigger value="pricing-strategies" data-state={activeTab === "pricing-strategies" ? "active" : "inactive"} className="data-[state=active]:bg-[hsl(229,58.8%,56.7%)] data-[state=active]:text-white">
+          Pricing Strategies ✨
+          </TabsTrigger> */}
         </TabsList>
         <TabsContent value="competitor-data">
           <StoreDataDisplay stores={allDisplayStores()} />
         </TabsContent>
-        <TabsContent value="pricing-strategies">
+        {/* <TabsContent value="pricing-strategies">
           <Card>
             <CardHeader>
               <CardTitle>Pricing Strategy Suggestions</CardTitle>
@@ -727,26 +655,26 @@ const CompetitorTracker = () => {
                           <p>Your Current Price: {formatCurrency(suggestion.current_price, suggestion.our_currency_symbol)}</p>
                           <div className="mt-2 space-y-1 text-sm">
                             <p><strong>Suggested Prices (vs {compSuggestion.competitor_store_identifier}):</strong></p>
-                            <ul className="list-disc pl-5">
-                              <li>Undercut Lower: {formatCurrency(suggestion.suggested_prices.undercut_lower, suggestion.our_currency_symbol)}</li>
-                              <li>Undercut Average: {formatCurrency(suggestion.suggested_prices.undercut_avg, suggestion.our_currency_symbol)}</li>
-                              <li>Match Lowest: {formatCurrency(suggestion.suggested_prices.lowest_price_match, suggestion.our_currency_symbol)}</li>
-                              <li>Slight Premium: {formatCurrency(suggestion.suggested_prices.slight_premium, suggestion.our_currency_symbol)}</li>
-                              <li>Premium: {formatCurrency(suggestion.suggested_prices.premium, suggestion.our_currency_symbol)}</li>
+                            <ul>
+                              <li>Undercut Lower ({formatCurrency(suggestion.suggested_prices.undercut_lower, suggestion.our_currency_symbol)})</li>
+                              <li>Undercut Average ({formatCurrency(suggestion.suggested_prices.undercut_avg, suggestion.our_currency_symbol)})</li>
+                              <li>Match Lowest ({formatCurrency(suggestion.suggested_prices.lowest_price_match, suggestion.our_currency_symbol)})</li>
+                              <li>Slight Premium ({formatCurrency(suggestion.suggested_prices.slight_premium, suggestion.our_currency_symbol)})</li>
+                              <li>Premium ({formatCurrency(suggestion.suggested_prices.premium, suggestion.our_currency_symbol)})</li>
                             </ul>
                           </div>
-                          {suggestion.matched_competitor_variants_from_this_competitor.length > 0 && (
-                            <div className="mt-3 pt-3 border-t border-gray-200">
-                              <p className="text-xs font-medium mb-1">Based on {suggestion.matched_competitor_variants_from_this_competitor.length} matched variant(s) from {compSuggestion.competitor_store_identifier}:</p>
-                              <ul className="list-disc pl-5 text-xs space-y-1">
-                                {suggestion.matched_competitor_variants_from_this_competitor.slice(0,3).map((compVar, cIdx) => (
-                                  <li key={cIdx}>
-                                    <strong>{compVar.competitor_product_title}</strong>
-                                    {compVar.competitor_variant_title && ` (${compVar.competitor_variant_title})`}
-                                    {' '}- {formatCurrency(compVar.price, compVar.competitor_currency_symbol)}
+                          {suggestion.matched_competitor_variants_from_this_competitor && suggestion.matched_competitor_variants_from_this_competitor.length > 0 && (
+                            <div className="mt-3 pt-3 border-t">
+                              <p className="text-xs font-semibold">Matched Competitor Products/Variants (from {compSuggestion.competitor_store_identifier}):</p>
+                              <ul className="list-disc pl-5 text-xs">
+                                {suggestion.matched_competitor_variants_from_this_competitor.slice(0,3).map((match, matchIdx) => (
+                                  <li key={matchIdx}>
+                                    {match.competitor_product_title} ({match.competitor_variant_title || 'N/A'}) - Price: {formatCurrency(match.price, getCurrencySymbol(null))}
                                   </li>
                                 ))}
-                                {suggestion.matched_competitor_variants_from_this_competitor.length > 3 && <li className="text-gray-500">...and {suggestion.matched_competitor_variants_from_this_competitor.length - 3} more.</li>}
+                                {suggestion.matched_competitor_variants_from_this_competitor.length > 3 && (
+                                  <li>...and {suggestion.matched_competitor_variants_from_this_competitor.length - 3} more.</li>
+                                )}
                               </ul>
                             </div>
                           )}
@@ -758,7 +686,7 @@ const CompetitorTracker = () => {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
       )}
 

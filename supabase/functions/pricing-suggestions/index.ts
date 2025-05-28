@@ -8,6 +8,12 @@ function normalizeTitle(title: string): string {
   return title;
 }
 
+// Function to strip HTML tags
+function stripHtmlTags(html?: string): string {
+  if (!html) return "";
+  return html.replace(/<[^>]*>?/gm, " ").replace(/\s+/g, " ").trim();
+}
+
 // Simplified TF-IDF and Cosine Similarity
 // This is a basic implementation. For production, consider more robust libraries
 // or alternative lightweight string similarity algorithms if performance is critical.
@@ -78,7 +84,10 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
 function isSimilar(title1: string, title2: string, threshold: number = 0.25): boolean {
   // console.log(`Comparing '${title1}' with '${title2}'`); // For debugging in Supabase logs
 
-  const documents = [title1, title2].filter(doc => doc && doc.trim() !== "");
+  const text1 = title1.trim();
+  const text2 = title2.trim();
+
+  const documents = [text1, text2].filter(doc => doc && doc.trim() !== "");
   if (documents.length < 2) return false; // Cannot compare if one title is empty
 
   const tfidf = new SimpleTfIdf(documents);
@@ -89,6 +98,7 @@ function isSimilar(title1: string, title2: string, threshold: number = 0.25): bo
   }
 
   const similarity = cosineSimilarity(vectors[0], vectors[1]);
+  console.log(`Comparing (normalized): "${text1}" AND "${text2}" --- Similarity Score: ${similarity}`);
   return similarity >= threshold;
 }
 
@@ -129,11 +139,14 @@ function getPricingSuggestions(ourPrice: number, competitorPrices: number[]): Pr
 interface Variant {
   title: string;
   price: string | number;
+  // description?: string; // Removed, body_html from Product will be used
 }
 
 interface Product {
   title: string;
   variants: Variant[];
+  // description?: string; // Removed in favor of body_html
+  body_html?: string; // Added body_html for richer content
 }
 
 interface CompanyData { // Represents "our_data"
@@ -169,7 +182,8 @@ interface SuggestionsByCompetitor {
 // Modified function to generate suggestions per competitor
 function suggestPricingAgainstCompetitors(
   ourData: CompanyData,
-  competitorStoresData: CompetitorStoreInput[]
+  competitorStoresData: CompetitorStoreInput[],
+  productLimit: number = 30 // Added default value for productLimit
 ): SuggestionsByCompetitor[] {
   const allSuggestionsByCompetitor: SuggestionsByCompetitor[] = [];
 
@@ -177,11 +191,15 @@ function suggestPricingAgainstCompetitors(
     return allSuggestionsByCompetitor;
   }
 
+  const ourProductsToProcess = productLimit ? ourData.products.slice(0, productLimit) : ourData.products;
+
   for (const competitorStore of competitorStoresData) {
     const currentCompetitorSuggestions: OurProductSuggestion[] = [];
     if (!competitorStore.products) continue;
 
-    for (const ourProduct of ourData.products) {
+    const competitorProductsToProcess = productLimit ? competitorStore.products.slice(0, productLimit) : competitorStore.products;
+
+    for (const ourProduct of ourProductsToProcess) { // Use sliced array
       const ourProductTitle = ourProduct.title;
       if (!ourProduct.variants) continue;
 
@@ -194,12 +212,13 @@ function suggestPricingAgainstCompetitors(
         const competitorPricesForThisStore: number[] = [];
         const matchedVariantsFromThisStore: MatchedCompetitorVariantDetail[] = [];
 
-        for (const compProduct of competitorStore.products) {
+        for (const compProduct of competitorProductsToProcess) { // Use sliced array
           if (!compProduct.variants) continue;
           for (const compVariant of compProduct.variants) {
-            const combinedOurTitle = `${ourProductTitle} ${ourVariantTitle}`.trim();
+            const combinedOurTitle = `${ourProductTitle} ${ourVariant.title}`.trim();
             const combinedCompetitorTitle = `${compProduct.title} ${compVariant.title}`.trim();
 
+            // Use body_html from product for comparison
             if (isSimilar(combinedOurTitle, combinedCompetitorTitle)) {
               try {
                 const price = parseFloat(compVariant.price as string);
@@ -259,7 +278,7 @@ serve(async (req: Request) => {
   try {
     const body = await req.json();
     // Updated to expect our_data and competitor_stores_data
-    const { our_data, competitor_stores_data } = body;
+    const { our_data, competitor_stores_data, product_limit } = body; // Added product_limit
 
     if (!our_data || !competitor_stores_data) {
       return new Response(JSON.stringify({ error: 'Missing our_data or competitor_stores_data in request body' }), {
@@ -276,7 +295,7 @@ serve(async (req: Request) => {
       });
     }
 
-    const suggestions = suggestPricingAgainstCompetitors(our_data, competitor_stores_data);
+    const suggestions = suggestPricingAgainstCompetitors(our_data, competitor_stores_data, product_limit); // Pass product_limit
 
     return new Response(JSON.stringify(suggestions), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -320,6 +339,7 @@ Example Input JSON for testing:
     "products": [
       {
         "title": "Our Awesome T-Shirt",
+        "body_html": "<p>A <b>really comfortable</b> t-shirt made from <em>premium cotton</em>.</p>",
         "variants": [
           { "title": "Red", "price": "20.00" },
           { "title": "Blue", "price": "22.00" }
@@ -333,6 +353,7 @@ Example Input JSON for testing:
       "products": [
         {
           "title": "Competitor Cool T-Shirt",
+          "body_html": "<div>A cool tee for everyday wear, <span>100% cotton</span>.</div>",
           "variants": [
             { "title": "Red", "price": "19.00" },
             { "title": "Blue", "price": "21.00" }
@@ -345,18 +366,21 @@ Example Input JSON for testing:
       "products": [
         {
           "title": "Another Brand Tee",
+          "body_html": "Basic t-shirt, good value.", // Plain text also works
           "variants": [
             { "title": "Red", "price": "23.00" }
           ]
         },
         {
-          "title": "Our Awesome T-Shirt Blue", // To test matching our blue variant
+          "title": "Our Awesome T-Shirt Blue",
+          "body_html": "<p>Just like your favorite blue shirt!</p>",
           "variants": [
-            { "title": "", "price": "20.50" } // Assuming variant title can be empty
+            { "title": "", "price": "20.50" }
           ]
         }
       ]
     }
-  ]
+  ],
+  "product_limit": 10
 }
 */
