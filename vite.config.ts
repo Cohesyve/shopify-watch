@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  base: '/free-tools/shopify-watch/',
+  base: '/shopify-watch/',
   build: { // Add this build configuration
     sourcemap: true,
   }
