@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.207.0/http/server.ts';
 
 // Helper function to normalize titles (ported from Python)
 function normalizeTitle(title: string): string {
@@ -282,9 +282,32 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error("Error in Edge Function:", error);
-    return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred' }), {
-      status: 500,
+    console.error("Error in Edge Function:", error); // Log the raw error
+
+    let errorMessage = 'An unexpected error occurred';
+    const errorStatus = 500;
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string' && error.trim() !== '') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && error.message.trim() !== '') {
+      errorMessage = error.message;
+    } else if (error !== null && error !== undefined) {
+      try {
+        const stringifiedError = String(error);
+        if (stringifiedError.trim() !== '' && stringifiedError !== '[object Object]') {
+          errorMessage = stringifiedError;
+        }
+      } catch (e) {
+        // If String(error) fails or results in a generic object string, stick to the default message
+      }
+    }
+    // If error was null, undefined, or could not be meaningfully stringified,
+    // errorMessage remains 'An unexpected error occurred'.
+
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: errorStatus,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
